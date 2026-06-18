@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>営業査定 ｜ 月次純売上ダッシュボード</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FBFAF6; --surface:#FFFFFF; --ink:#1A1A17; --ink-soft:#6B675C;
+    --hair:#E6E2D7; --hair-strong:#D6D1C4;
+    --net:#2F7D5B; --net-soft:#E2F0E9; --fee:#B5762B; --fee-soft:#F6EBD9;
+    --warn:#B23B3B; --shadow:0 1px 2px rgba(26,26,23,.04),0 8px 24px rgba(26,26,23,.05);
+  }
+  *{box-sizing:border-box} html,body{margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:"Zen Kaku Gothic New",system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .num{font-family:"Spline Sans Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 24px 96px}
+
+  header.top{border-bottom:1px solid var(--hair-strong);background:linear-gradient(180deg,#fff,var(--paper));position:sticky;top:0;z-index:50}
+  .top-inner{max-width:1160px;margin:0 auto;padding:16px 24px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .brand{display:flex;flex-direction:column;line-height:1.15}
+  .brand .eyebrow{font-size:11px;letter-spacing:.22em;color:var(--ink-soft);font-weight:700;text-transform:uppercase}
+  .brand h1{font-size:20px;font-weight:900;margin:2px 0 0}
+  nav.tabs{display:flex;gap:4px;background:#F1EEE5;border-radius:11px;padding:4px}
+  nav.tabs button{font-family:inherit;font-size:13px;font-weight:700;border:none;background:transparent;color:var(--ink-soft);padding:8px 16px;border-radius:8px;cursor:pointer;transition:.15s}
+  nav.tabs button.active{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .spacer{flex:1}
+  .btn{font-family:inherit;font-size:13px;font-weight:700;border-radius:10px;border:1px solid var(--hair-strong);background:var(--surface);color:var(--ink);padding:9px 14px;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+  .btn:hover{border-color:var(--ink);transform:translateY(-1px)}
+  .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)} .btn.primary:hover{background:#000}
+  .btn.ghost{background:transparent} .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  .btn.sm{padding:5px 10px;font-size:12px;border-radius:8px}
+  .btn.danger{color:var(--warn);border-color:#e6c9c9} .btn.danger:hover{background:#fbecec;border-color:var(--warn)}
+  input[type=file]{display:none}
+
+  .subbar{max-width:1160px;margin:0 auto;padding:12px 24px 0;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  label.field{font-size:12.5px;color:var(--ink-soft);font-weight:700;display:flex;align-items:center;gap:7px}
+  select,.txt{font-family:inherit;font-size:13.5px;padding:8px 11px;border-radius:9px;border:1px solid var(--hair-strong);background:var(--surface);color:var(--ink)}
+  select:focus,.txt:focus{outline:2px solid var(--ink);outline-offset:-1px}
+  .rate-in{width:64px;text-align:right;font-family:"Spline Sans Mono",monospace}
+  .sel-rep{min-width:140px}
+
+  .notice-bar{margin-top:24px;border-radius:14px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;font-size:13.5px;box-shadow:var(--shadow)}
+  .notice-bar.ok{background:var(--net-soft);border:1px solid #bfe0cf;color:#1f5b40}
+  .notice-bar.warn{background:var(--fee-soft);border:1px solid #ecd9b8;color:#7a5418}
+  .notice-bar .x{margin-left:auto;cursor:pointer;font-weight:700;color:inherit;background:transparent;border:none;font-size:18px;line-height:1}
+  .notice-bar b{font-family:"Spline Sans Mono",monospace}
+
+  .drop{margin-top:40px;border:1.5px dashed var(--hair-strong);border-radius:18px;background:var(--surface);padding:54px 32px;text-align:center;transition:.2s}
+  .drop.drag{border-color:var(--net);background:var(--net-soft)}
+  .drop h2{font-size:19px;margin:0 0 6px} .drop p{color:var(--ink-soft);font-size:14px;margin:0 auto;max-width:560px}
+  .drop .big{font-size:40px;margin-bottom:8px;color:var(--ink-soft)}
+
+  section.block{margin-top:30px}
+  .block-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+  .block-head .n{font-family:"Spline Sans Mono",monospace;font-size:12px;color:var(--ink-soft);font-weight:600}
+  .block-head h3{font-size:16px;font-weight:900;margin:0}
+  .block-head .hint{font-size:12.5px;color:var(--ink-soft)}
+
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .card{background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+  .card .lbl{font-size:11.5px;color:var(--ink-soft);font-weight:700;letter-spacing:.04em}
+  .card .val{font-size:25px;font-weight:600;margin-top:4px}
+  .card.accent-net{border-top:3px solid var(--net)} .card.accent-fee{border-top:3px solid var(--fee)}
+  .card .sub{font-size:11.5px;color:var(--ink-soft);margin-top:3px}
+  .yen{font-size:14px;color:var(--ink-soft);font-weight:700;margin-right:1px}
+
+  .lead{display:flex;flex-direction:column;gap:10px}
+  .rep{background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+  .rep.unassigned{background:#FCFBF7;border-style:dashed}
+  .rep-top{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+  .rank{width:30px;height:30px;border-radius:8px;color:#fff;display:grid;place-items:center;font-family:"Spline Sans Mono",monospace;font-weight:600;font-size:14px;flex:none}
+  .rep-name{font-weight:900;font-size:16px} .rep-meta{font-size:12px;color:var(--ink-soft)}
+  .rep-net{margin-left:auto;text-align:right} .rep-net .k{font-size:11px;color:var(--ink-soft);font-weight:700;letter-spacing:.05em}
+  .rep-net .v{font-size:23px;font-weight:600;color:var(--net)} .rep.unassigned .rep-net .v{color:var(--ink-soft)}
+  .bar-track{height:14px;border-radius:7px;background:var(--hair);overflow:hidden;display:flex}
+  .bar-net{background:var(--net);height:100%}
+  .bar-fee{background:repeating-linear-gradient(45deg,var(--fee),var(--fee) 4px,#c2853f 4px,#c2853f 8px);height:100%}
+  .legend{display:flex;gap:16px;margin-top:9px;font-size:11.5px;color:var(--ink-soft);flex-wrap:wrap}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .dot.net{background:var(--net)} .dot.fee{background:var(--fee)}
+  .legend b{color:var(--ink);font-family:"Spline Sans Mono",monospace;font-weight:600}
+  .legend .strike{text-decoration:line-through;color:var(--fee)}
+
+  details.panel{background:var(--surface);border:1px solid var(--hair);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  details.panel+details.panel{margin-top:14px}
+  summary{cursor:pointer;list-style:none;padding:15px 18px;font-weight:900;font-size:15px;display:flex;align-items:center;gap:10px}
+  summary::-webkit-details-marker{display:none}
+  summary .chev{transition:.2s;color:var(--ink-soft)} details[open] summary .chev{transform:rotate(90deg)}
+  summary .tag{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--ink-soft)}
+  .panel-body{padding:4px 18px 18px;overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:left;font-size:11.5px;color:var(--ink-soft);font-weight:700;letter-spacing:.04em;padding:8px 10px;border-bottom:1px solid var(--hair-strong)}
+  td{padding:9px 10px;border-bottom:1px solid var(--hair);vertical-align:top} tr:last-child td{border-bottom:none}
+  td.r,th.r{text-align:right}
+  .switch{position:relative;display:inline-block;width:42px;height:24px;flex:none}
+  .switch input{opacity:0;width:0;height:0}
+  .slider{position:absolute;inset:0;background:var(--hair-strong);border-radius:24px;transition:.2s;cursor:pointer}
+  .slider:before{content:"";position:absolute;height:18px;width:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+  .switch input:checked+.slider{background:var(--net)} .switch input:checked+.slider:before{transform:translateX(18px)}
+  .name-in{width:100%;max-width:240px}
+  .chip{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:7px;vertical-align:-1px}
+  .del{color:var(--warn);background:transparent;border:1px solid #e6c9c9;border-radius:8px;padding:4px 9px;font-size:12px;font-weight:700;cursor:pointer}
+  .del:hover{background:#fbecec}
+  .ordno{font-family:"Spline Sans Mono",monospace;font-size:11.5px;color:var(--ink-soft);line-height:1.7}
+  .ordno .m{color:var(--ink);font-weight:600}
+
+  .note{background:var(--fee-soft);border:1px solid #ecd9b8;border-radius:12px;padding:14px 16px;font-size:13px;color:#7a5418;margin-top:14px}
+  .note b{color:#5e3f10}
+  .chartcard{background:var(--surface);border:1px solid var(--hair);border-radius:14px;box-shadow:var(--shadow);padding:18px 18px 10px}
+  .chart-scroll{overflow-x:auto}
+  .pivot tr.total td{font-weight:900;background:#FAF8F2}
+  .grade{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;color:#fff;font-weight:900;font-size:15px;font-family:"Spline Sans Mono",monospace;flex:none}
+  .grade.sm{width:24px;height:24px;font-size:13px;border-radius:7px}
+  .matrix{border-collapse:separate;border-spacing:0}
+  .matrix th,.matrix td{white-space:nowrap}
+  .matrix td.cell{text-align:center;padding:8px}
+  .matrix .cnet{font-size:11px;color:var(--ink-soft);margin-top:3px}
+  .matrix td.na{color:#c4bfb2;text-align:center}
+  .gscale{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+  .gscale .gi{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft)}
+  .gband-in{width:72px;text-align:right;font-family:"Spline Sans Mono",monospace}
+  .cloud-pill{font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:20px;background:var(--hair);color:var(--ink-soft);white-space:nowrap}
+  .cloud-pill.on{background:var(--net-soft);color:#1f5b40}
+  .cloud-pill.err{background:#f7dede;color:#922}
+  .cloud-panel{position:relative;margin-top:24px;background:var(--surface);border:1px solid var(--hair-strong);border-radius:16px;box-shadow:var(--shadow);padding:22px 24px}
+  .cp-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+  .cloud-panel h4{margin:0 0 4px;font-size:14px;font-weight:900}
+  .cp-sub{font-size:12.5px;color:var(--ink-soft);margin:0 0 10px}
+  .cp-l{display:block;font-size:11.5px;font-weight:700;color:var(--ink-soft);margin:8px 0 3px}
+  .cp-in{width:100%;font-family:"Spline Sans Mono",monospace;font-size:12.5px}
+  .cp-check{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink);margin:12px 0}
+  .cp-btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .cp-status{margin-top:10px;font-size:12px;color:var(--ink-soft);font-family:"Spline Sans Mono",monospace}
+  .cp-sql{background:#1A1A17;color:#E8E4D8;border-radius:10px;padding:14px;font-family:"Spline Sans Mono",monospace;font-size:11.5px;line-height:1.5;overflow-x:auto;white-space:pre}
+  .cp-warn{font-size:11.5px;color:#7a5418;background:var(--fee-soft);border:1px solid #ecd9b8;border-radius:10px;padding:10px 12px;margin-top:10px}
+  .cp-hr{border:none;border-top:1px solid var(--hair);margin:18px 0}
+  .cp-close{position:absolute;top:16px;right:18px;background:transparent;border:none;font-size:13px;font-weight:700;color:var(--ink-soft);cursor:pointer}
+  @media(max-width:760px){.cp-grid{grid-template-columns:1fr}}
+  .foot{margin-top:22px;font-size:12px;color:var(--ink-soft)}
+  .hidden{display:none}
+  @media(max-width:760px){.cards{grid-template-columns:repeat(2,1fr)} .wrap{padding:0 16px 80px} .top-inner{gap:12px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand"><span class="eyebrow">Sales Assessment</span><h1>営業査定 ｜ 月次純売上</h1></div>
+    <nav class="tabs" id="tabs">
+      <button data-v="setup" class="active">取込・設定</button>
+      <button data-v="report">集計レポート</button>
+    </nav>
+    <div class="spacer"></div>
+    <label class="btn primary" for="file">⬆ CSVを追加取込</label>
+    <input type="file" id="file" accept=".csv,text/csv">
+    <button class="btn" id="btnCloud">☁ クラウド同期</button>
+    <button class="btn ghost" id="btnExport" disabled>設定を保存</button>
+    <label class="btn ghost" for="impFile">設定を読込</label>
+    <input type="file" id="impFile" accept=".json,application/json">
+    <button class="btn danger" id="btnClear" disabled>全データ消去</button>
+  </div>
+  <div class="subbar hidden" id="subbar">
+    <label class="field">対象月 <select id="monthSel"></select></label>
+    <label class="field">既定の紹介料率 <input class="txt rate-in" id="defRate" type="number" min="0" max="100" step="0.5" value="10"><span style="color:var(--ink-soft)">%</span></label>
+    <span class="spacer" style="flex:1"></span>
+    <span id="cloudStatus" class="cloud-pill" title="クラウド同期の状態">クラウド: 未設定</span>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="cloudPanel" class="cloud-panel hidden">
+    <div class="cp-grid">
+      <div>
+        <h4>☁ クラウド同期（Supabase）</h4>
+        <p class="cp-sub">複数のPCで同じデータを共有します。両方のPCで同じURLとキーを入力してください。</p>
+        <label class="cp-l">Supabase URL</label>
+        <input class="txt cp-in" id="cfgUrl" placeholder="https://xxxxxxxx.supabase.co">
+        <label class="cp-l">anon key（公開鍵）</label>
+        <input class="txt cp-in" id="cfgKey" placeholder="eyJhbGciOi...">
+        <label class="cp-check"><input type="checkbox" id="cfgAuto" checked> 変更を自動でクラウド保存する</label>
+        <div class="cp-btns">
+          <button class="btn primary" id="btnCloudLoad">接続してクラウドから読込</button>
+          <button class="btn" id="btnCloudSave">今すぐクラウドへ保存</button>
+        </div>
+        <div class="cp-status" id="cloudStatus2">状態: 未設定</div>
+      </div>
+      <div>
+        <h4>初回のみ：Supabaseで下記SQLを実行</h4>
+        <p class="cp-sub">SQL Editor に貼り付けて Run。テーブルを1つ作るだけです。</p>
+        <pre class="cp-sql">create table if not exists app_state (
+  id text primary key,
+  data jsonb not null default '{}',
+  updated_at timestamptz default now()
+);
+alter table app_state enable row level security;
+create policy "anon_all" on app_state
+  for all using (true) with check (true);</pre>
+        <p class="cp-warn">※ anon keyを記載したHTMLを公開URLに置くと、URLとキーを知る人は読み書き可能です。社内限定のURLにする・推測されにくいパスにする等の運用を。より厳格にするなら閲覧用パスワード等を追加できます。</p>
+        <hr class="cp-hr">
+        <h4>バックアップ / 復元（クラウドを使わない場合の手動移行）</h4>
+        <div class="cp-btns">
+          <button class="btn" id="btnBackup">全データをバックアップ(JSON)</button>
+          <label class="btn ghost" for="restoreFile">バックアップを復元</label>
+          <input type="file" id="restoreFile" accept=".json,application/json">
+        </div>
+        <p class="cp-sub">受注データ＋すべての設定（担当者・割当・紹介設定・評価基準）を1ファイルに保存。別PCで「復元」すれば移せます。</p>
+      </div>
+    </div>
+    <button class="cp-close" id="cloudClose">閉じる ×</button>
+  </div>
+  <div id="notice" class="hidden"></div>
+
+  <div id="empty" class="drop">
+    <div class="big">▦</div>
+    <h2>bcartの受注CSVをドロップ</h2>
+    <p>受注データを読み込むと、月ごと・営業担当者ごとに <b>総売上 → 紹介料控除 → 純売上</b> を自動集計します。複数月のCSVは続けて取り込めば<b>積み増し</b>され、同じ受注番号は<b>重複としてスキップ</b>します。文字コード(Shift-JIS / UTF-8)は自動判定。</p>
+    <p style="margin-top:10px">別PCのデータを見る場合は、上の「<b>☁ クラウド同期</b>」から接続して読み込んでください。</p>
+  </div>
+
+  <!-- ===== SETUP ===== -->
+  <div id="viewSetup" class="hidden">
+    <section class="block"><div class="cards" id="cards"></div></section>
+
+    <section class="block">
+      <div class="block-head"><span class="n">01</span><h3>営業担当者ランキング</h3><span class="hint">純売上(紹介料控除後)の多い順</span></div>
+      <div class="lead" id="lead"></div>
+    </section>
+
+    <section class="block">
+      <div class="block-head"><span class="n">02</span><h3>営業担当者マスタ</h3><span class="hint">登録・名前修正・削除ができます</span></div>
+      <details class="panel" open>
+        <summary><span class="chev">▸</span>担当者一覧<span class="tag" id="repTag"></span></summary>
+        <div class="panel-body">
+          <table><thead><tr><th>表示名</th><th>識別コード</th><th class="r">担当顧客数</th><th class="r">操作</th></tr></thead>
+          <tbody id="repTbody"></tbody></table>
+          <button class="btn sm" id="addRep" style="margin-top:12px">＋ 営業担当者を追加</button>
+        </div>
+      </details>
+    </section>
+
+    <section class="block">
+      <div class="block-head"><span class="n">03</span><h3>顧客マスタ ・ 担当割当 / 紹介設定</h3><span class="hint">顧客ごとに担当営業を選び、紹介元の有無と料率を設定</span></div>
+      <details class="panel" open>
+        <summary><span class="chev">▸</span>顧客一覧<span class="tag" id="custTag"></span></summary>
+        <div class="panel-body">
+          <table><thead><tr><th>顧客(会社名)</th><th>受注番号(対象期間)</th><th>担当営業</th><th>紹介元あり</th><th class="r">紹介料率</th><th class="r">対象月 商品総額</th></tr></thead>
+          <tbody id="custTbody"></tbody></table>
+        </div>
+      </details>
+      <div class="note">
+        <b>計算の前提：</b> 「紹介元あり」の顧客について <span class="num">商品総額 ×（紹介料率）</span> を1受注ごとに差し引きます。税・送料は成績から除外。
+        担当営業は <b>顧客ごとのプルダウンが優先</b> され、CSVの担当者が初期値として入ります。
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="block-head"><span class="n">04</span><h3>評価ランク設定</h3><span class="hint">月の純売上(紹介料控除後)で自動判定。上限額は変更できます</span></div>
+      <details class="panel" open>
+        <summary><span class="chev">▸</span>ランク基準<span class="tag" id="gradeTag"></span></summary>
+        <div class="panel-body">
+          <table style="max-width:560px"><thead><tr><th>評価</th><th>月次 純売上の範囲</th><th class="r">上限(万円)</th></tr></thead>
+          <tbody id="gradeTbody"></tbody></table>
+        </div>
+      </details>
+    </section>
+  </div>
+  <div id="viewReport" class="hidden">
+    <section class="block">
+      <div class="block-head"><span class="n">A</span><h3>月次評価マトリクス</h3><span class="hint">各担当者の「月ごとの純売上」と自動評価</span></div>
+      <div class="gscale" id="gscale" style="margin-bottom:12px"></div>
+      <div class="chartcard" style="padding:0;overflow:auto">
+        <table class="matrix"><thead id="matrixHead"></thead><tbody id="matrixBody"></tbody></table>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="block-head"><span class="n">B</span><h3>集計表</h3><span class="hint" id="rptPeriod"></span></div>
+      <div class="chartcard" style="padding:0;overflow:auto">
+        <table class="pivot"><thead><tr>
+          <th>営業担当者</th><th class="r">総売上(商品)</th><th class="r">紹介料控除</th><th class="r">純売上</th><th class="r">受注件数</th><th class="r">顧客数</th><th class="r">評価</th>
+        </tr></thead><tbody id="pivotBody"></tbody></table>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="block-head"><span class="n">C</span><h3>担当者別 純売上</h3><span class="hint" id="bar1Period"></span></div>
+      <div class="chartcard"><div id="chartBar"></div></div>
+    </section>
+
+    <section class="block">
+      <div class="block-head"><span class="n">D</span><h3>月次推移 ・ 担当者別 純売上</h3><span class="hint">全期間</span></div>
+      <div class="chartcard">
+        <div class="chart-scroll" id="chartTrend"></div>
+        <div class="legend" id="trendLegend" style="margin-top:12px"></div>
+      </div>
+    </section>
+    <p class="foot" id="foot"></p>
+  </div>
+</div>
+
+<script>
+const PALETTE=['#2F7D5B','#3A6EA5','#B5762B','#8E5BA6','#C0504D','#4F8A8B','#A37B2C','#6B5B95','#557A46','#9A6324'];
+const NONE='__none__';
+const Store={get(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+const S={orders:[],months:[],reps:{},custRep:{},custRef:{},defRate:10,curMonth:'ALL',view:'setup',
+  gradeMax:{F:100,E:200,D:300,C:400,B:600},
+  cloud:{url:'',key:'',auto:true}};
+const GRADES=['F','E','D','C','B','A'];
+const GCOLOR={F:'#A23B3B',E:'#B5603B',D:'#C07A2B',C:'#B5912B',B:'#4F8A3F',A:'#1F7A4D'};
+function gradeOf(net){const m=net;const gm=S.gradeMax;
+  if(m<=gm.F*1e4)return 'F';if(m<=gm.E*1e4)return 'E';if(m<=gm.D*1e4)return 'D';
+  if(m<=gm.C*1e4)return 'C';if(m<=gm.B*1e4)return 'B';return 'A';}
+
+/* ---- CSV ---- */
+function parseCSV(t){const rows=[];let row=[],cur='',q=false;for(let i=0;i<t.length;i++){const c=t[i];
+  if(q){if(c==='"'){if(t[i+1]==='"'){cur+='"';i++;}else q=false;}else cur+=c;}
+  else{if(c==='"')q=true;else if(c===','){row.push(cur);cur='';}else if(c==='\r'){}else if(c==='\n'){row.push(cur);rows.push(row);row=[];cur='';}else cur+=c;}}
+  if(cur!==''||row.length){row.push(cur);rows.push(row);}
+  return rows.filter(r=>r.length>1||(r.length===1&&r[0].trim()!==''));}
+function decodeBuffer(buf){let u=new TextDecoder('utf-8').decode(buf);if(u.includes('受注番号'))return u;
+  try{let s=new TextDecoder('shift_jis').decode(buf);if(s.includes('受注番号'))return s;}catch(e){}return u;}
+
+const yen=n=>'¥'+Math.round(n).toLocaleString('ja-JP');
+const numFmt=n=>Math.round(n).toLocaleString('ja-JP');
+function compactYen(n){n=Math.round(n);if(Math.abs(n)>=1e8)return '¥'+(n/1e8).toFixed(2)+'億';if(Math.abs(n)>=1e4)return '¥'+Math.round(n/1e4).toLocaleString()+'万';return '¥'+n.toLocaleString();}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function newRepId(){return 'r'+Date.now().toString(36)+Math.floor(Math.random()*1000);}
+
+/* ---- ingest (追記＋重複検知) ---- */
+function ingest(text,fileName){
+  const rows=parseCSV(text);if(!rows.length)return notify('CSVを読み取れませんでした。','warn');
+  const head=rows[0].map(h=>h.trim());const idx=n=>head.indexOf(n);
+  const col={no:idx('受注番号'),comp:idx('会社名'),rep:idx('★営業担当者'),
+    dt:idx('受注日時')>=0?idx('受注日時'):idx('営業日時'),sub:idx('小計'),kind:idx('明細区分')};
+  if(col.no<0||col.sub<0){notify('bcartの受注CSV形式ではないようです（受注番号/小計が見つかりません）。','warn');return;}
+  // parse rows -> orders map
+  const m={};
+  for(let r=1;r<rows.length;r++){const a=rows[r];const no=(a[col.no]||'').trim();if(!no)continue;
+    const comp=(a[col.comp]||'').trim()||'(会社名なし)';const rep=(a[col.rep]||'').trim();
+    const dt=(a[col.dt]||'').trim();const sub=parseFloat((a[col.sub]||'0').replace(/[^0-9.\-]/g,''))||0;const kind=(a[col.kind]||'').trim();
+    if(!m[no])m[no]={no,comp,csvRep:'',dt:'',product:0,ship:0,other:0,lines:0};
+    const o=m[no];o.lines++;if(rep&&!o.csvRep)o.csvRep=rep;if(dt&&!o.dt)o.dt=dt;
+    if(comp&&comp!=='(会社名なし)')o.comp=comp;
+    if(kind==='商品')o.product+=sub;else if(kind==='送料')o.ship+=sub;else o.other+=sub;}
+  const incoming=Object.values(m).map(o=>{o.month=(o.dt||'').slice(0,7)||'不明';return o;});
+  if(!incoming.length){notify('受注明細が見つかりませんでした。','warn');return;}
+
+  // merge into S.orders (dedupe by 受注番号)
+  const have=new Set(S.orders.map(o=>o.no));
+  let added=0,dup=0;const dupNos=[];
+  for(const o of incoming){
+    if(have.has(o.no)){dup++;if(dupNos.length<10)dupNos.push(o.no);continue;}
+    S.orders.push(o);have.add(o.no);added++;
+  }
+  refreshMasters();buildMonths();persistOrders();showApp();render();
+  notifyImport(fileName,added,dup,dupNos,incoming.length);
+}
+
+function refreshMasters(){
+  for(const o of S.orders){if(o.csvRep&&!S.reps[o.csvRep])S.reps[o.csvRep]='担当 '+o.csvRep;}
+  const comps=[...new Set(S.orders.map(o=>o.comp))];
+  for(const c of comps){
+    if(!(c in S.custRep)){const o=S.orders.find(x=>x.comp===c&&x.csvRep);S.custRep[c]=o?o.csvRep:NONE;}
+    if(!(c in S.custRef))S.custRef[c]={on:true,rate:S.defRate};
+  }
+}
+function bootstrapSettings(){
+  const r=Store.get('reps');if(r)S.reps=r;
+  const cr=Store.get('cust_rep');if(cr)S.custRep=cr;
+  const cf=Store.get('cust_ref');if(cf)S.custRef=cf;
+  const dr=Store.get('def_rate');if(dr!=null){S.defRate=dr;document.getElementById('defRate').value=dr;}
+  const gm=Store.get('grade_max');if(gm)S.gradeMax=gm;
+}
+function persistOrders(){Store.set('orders',S.orders);}
+function persistSettings(){Store.set('reps',S.reps);Store.set('cust_rep',S.custRep);Store.set('cust_ref',S.custRef);Store.set('def_rate',S.defRate);Store.set('grade_max',S.gradeMax);}
+
+/* ---- snapshot / hydrate (used by cloud + backup) ---- */
+function snapshot(){return {orders:S.orders,reps:S.reps,custRep:S.custRep,custRef:S.custRef,defRate:S.defRate,gradeMax:S.gradeMax};}
+function hydrate(d){
+  if(Array.isArray(d.orders))S.orders=d.orders;
+  if(d.reps)S.reps=d.reps;if(d.custRep)S.custRep=d.custRep;if(d.custRef)S.custRef=d.custRef;
+  if(d.defRate!=null){S.defRate=d.defRate;document.getElementById('defRate').value=d.defRate;}
+  if(d.gradeMax)S.gradeMax=d.gradeMax;
+  persistOrders();persistSettings();
+}
+
+/* ---- cloud (Supabase REST / PostgREST) ---- */
+function loadCloudCfg(){const c=Store.get('cloud_cfg');if(c){S.cloud=Object.assign(S.cloud,c);}
+  const u=document.getElementById('cfgUrl'),k=document.getElementById('cfgKey'),a=document.getElementById('cfgAuto');
+  if(u)u.value=S.cloud.url||'';if(k)k.value=S.cloud.key||'';if(a)a.checked=S.cloud.auto!==false;}
+function saveCloudCfg(){Store.set('cloud_cfg',S.cloud);}
+function cloudConfigured(){return !!(S.cloud.url&&S.cloud.key);}
+function cloudUrl(){return S.cloud.url.replace(/\/+$/,'')+'/rest/v1/app_state';}
+function cloudHeaders(extra){return Object.assign({'apikey':S.cloud.key,'Authorization':'Bearer '+S.cloud.key,'Content-Type':'application/json'},extra||{});}
+function setCloudStatus(text,cls){
+  const pill=document.getElementById('cloudStatus');if(pill){pill.textContent='クラウド: '+text;pill.className='cloud-pill'+(cls?(' '+cls):'');}
+  const s2=document.getElementById('cloudStatus2');if(s2)s2.textContent='状態: '+text;}
+async function cloudLoad(){
+  if(!cloudConfigured()){setCloudStatus('未設定');return false;}
+  setCloudStatus('読込中…');
+  try{
+    const r=await fetch(cloudUrl()+'?id=eq.sales_assessment&select=data',{headers:cloudHeaders()});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const rows=await r.json();
+    if(rows.length&&rows[0].data&&Object.keys(rows[0].data).length){
+      hydrate(rows[0].data);setCloudStatus('接続済み・読込完了 '+nowT(),'on');return true;}
+    setCloudStatus('接続済み・クラウドにデータなし','on');return false;
+  }catch(e){setCloudStatus('エラー '+e.message,'err');return false;}
+}
+async function cloudSave(){
+  if(!cloudConfigured())return;
+  setCloudStatus('保存中…');
+  try{
+    const body=[{id:'sales_assessment',data:snapshot(),updated_at:new Date().toISOString()}];
+    const r=await fetch(cloudUrl(),{method:'POST',headers:cloudHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(body)});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    setCloudStatus('保存済み '+nowT(),'on');
+  }catch(e){setCloudStatus('保存エラー '+e.message,'err');}
+}
+let cloudTimer=null;
+function scheduleCloud(){if(S.cloud.auto&&cloudConfigured()){clearTimeout(cloudTimer);cloudTimer=setTimeout(cloudSave,1500);}}
+function nowT(){return new Date().toLocaleTimeString('ja-JP');}
+
+/* ---- full backup / restore ---- */
+function fullBackup(){const blob=new Blob([JSON.stringify(snapshot(),null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='sales_assessment_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();}
+function fullRestore(file){const rd=new FileReader();rd.onload=()=>{try{
+    const d=JSON.parse(rd.result);hydrate(d);refreshMasters();buildMonths();showApp();render();
+    notify(`バックアップを復元しました（受注 ${S.orders.length}件）。`,'ok');}catch(e){notify('バックアップを読み取れませんでした。','warn');}};rd.readAsText(file);}
+
+function buildMonths(){S.months=[...new Set(S.orders.map(o=>o.month))].sort();
+  const sel=document.getElementById('monthSel');
+  sel.innerHTML='<option value="ALL">全期間</option>'+[...S.months].reverse().map(x=>`<option value="${x}">${x}</option>`).join('');
+  S.curMonth=S.months.includes(S.curMonth)?S.curMonth:'ALL';sel.value=S.curMonth;}
+
+function showApp(){document.getElementById('empty').classList.add('hidden');
+  document.getElementById('subbar').classList.remove('hidden');
+  document.getElementById('btnExport').disabled=false;document.getElementById('btnClear').disabled=false;}
+
+/* ---- notify ---- */
+function notify(html,type){const n=document.getElementById('notice');
+  n.className='notice-bar '+(type||'ok');
+  n.innerHTML='<div>'+html+'</div><button class="x" data-close>×</button>';
+  n.classList.remove('hidden');}
+function notifyImport(fileName,added,dup,dupNos,total){
+  let html;
+  if(added===0&&dup>0){
+    html=`<b>${esc(fileName)}</b>：新しい受注はありませんでした（全 ${total}件が既存と重複）。既存データは保持しています。`;
+    html+=`<div class="ordno" style="margin-top:6px">重複した受注番号: ${dupNos.join(', ')}${dup>dupNos.length?` …他${dup-dupNos.length}件`:''}</div>`;
+    notify(html,'warn');return;
+  }
+  html=`<b>${esc(fileName)}</b> を取り込みました ｜ 新規 <b>${added}</b>件`;
+  if(dup>0)html+=` ／ <span style="color:var(--fee)">重複スキップ <b>${dup}</b>件</span>`;
+  html+=`（累計 <b>${S.orders.length}</b>受注）`;
+  if(dup>0)html+=`<div class="ordno" style="margin-top:6px">重複した受注番号: ${dupNos.join(', ')}${dup>dupNos.length?` …他${dup-dupNos.length}件`:''}（既存データは保持）</div>`;
+  notify(html,dup>0?'warn':'ok');
+}
+
+/* ---- compute ---- */
+function rateOf(c){const x=S.custRef[c];if(!x||!x.on)return 0;return (x.rate??S.defRate)/100;}
+function repOf(o){const r=S.custRep[o.comp];return (r&&r!==NONE)?r:NONE;}
+function activeOrders(){return S.curMonth==='ALL'?S.orders:S.orders.filter(o=>o.month===S.curMonth);}
+function repName(id){return id===NONE?'未割当（担当者なし）':(S.reps[id]||id);}
+function repColor(id){if(id===NONE)return '#9A958A';const ids=Object.keys(S.reps).sort();const i=ids.indexOf(id);return PALETTE[(i<0?0:i)%PALETTE.length];}
+function aggregate(orders){const reps={},comps={};let g=0,f=0,n=0,sh=0;
+  for(const o of orders){const fee=o.product*rateOf(o.comp),net=o.product-fee,id=repOf(o);
+    g+=o.product;f+=fee;n+=net;sh+=o.ship;
+    if(!reps[id])reps[id]={id,gross:0,fee:0,net:0,orders:0,custs:new Set()};
+    const R=reps[id];R.gross+=o.product;R.fee+=fee;R.net+=net;R.orders++;R.custs.add(o.comp);
+    comps[o.comp]=(comps[o.comp]||0)+o.product;}
+  return {reps,comps,tGross:g,tFee:f,tNet:n,tShip:sh};}
+
+/* ---- view ---- */
+function setView(v){S.view=v;
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
+  document.getElementById('viewSetup').classList.toggle('hidden',v!=='setup');
+  document.getElementById('viewReport').classList.toggle('hidden',v!=='report');render();}
+
+function render(){
+  S.curMonth=document.getElementById('monthSel').value||'ALL';
+  S.defRate=parseFloat(document.getElementById('defRate').value)||0;
+  if(S.view==='setup')renderSetup();else renderReport();
+  persistSettings();scheduleCloud();
+}
+
+function renderSetup(){
+  const A=aggregate(activeOrders());
+  const feePct=A.tGross?(A.tFee/A.tGross*100):0;
+  document.getElementById('cards').innerHTML=`
+    <div class="card"><div class="lbl">総売上（商品総額）</div><div class="val num"><span class="yen">¥</span>${numFmt(A.tGross)}</div><div class="sub">税・送料を除く</div></div>
+    <div class="card accent-fee"><div class="lbl">紹介料 控除</div><div class="val num" style="color:var(--fee)"><span class="yen">¥</span>${numFmt(A.tFee)}</div><div class="sub">総売上の ${feePct.toFixed(1)}%</div></div>
+    <div class="card accent-net"><div class="lbl">純売上（査定対象）</div><div class="val num" style="color:var(--net)"><span class="yen">¥</span>${numFmt(A.tNet)}</div><div class="sub">紹介料控除後</div></div>
+    <div class="card"><div class="lbl">参考：送料合計</div><div class="val num" style="color:var(--ink-soft)"><span class="yen">¥</span>${numFmt(A.tShip)}</div><div class="sub">成績には含めない</div></div>`;
+
+  const list=Object.values(A.reps).sort((a,b)=>b.net-a.net);
+  const maxG=Math.max(1,...list.map(r=>r.gross));
+  const lead=document.getElementById('lead');lead.innerHTML='';let rank=0;
+  for(const R of list){const none=R.id===NONE;if(!none)rank++;
+    const w=R.gross/maxG*100,netW=R.gross?R.net/R.gross*100:0,feeW=100-netW;
+    const el=document.createElement('div');el.className='rep'+(none?' unassigned':'');
+    el.innerHTML=`<div class="rep-top">
+        <div class="rank" style="background:${none?'var(--ink-soft)':repColor(R.id)}">${none?'—':rank}</div>
+        <div><div class="rep-name">${esc(repName(R.id))}</div>
+        <div class="rep-meta">${R.orders}件 ・ 顧客${R.custs.size}社${none?' ・ <span style="color:var(--warn)">※下の顧客マスタで担当を割当てられます</span>':''}</div></div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:14px">${(none||S.curMonth==='ALL')?'':`<div class="grade" style="background:${GCOLOR[gradeOf(R.net)]}" title="対象月の純売上にもとづく評価">${gradeOf(R.net)}</div>`}<div class="rep-net"><div class="k">純売上</div><div class="v num">${yen(R.net)}</div></div></div></div>
+      <div class="bar-track" style="width:${Math.max(8,w)}%"><div class="bar-net" style="width:${netW}%"></div><div class="bar-fee" style="width:${feeW}%"></div></div>
+      <div class="legend"><span><i class="dot net"></i>純売上 <b>${yen(R.net)}</b></span><span><i class="dot fee"></i>紹介料 <b class="strike">${yen(R.fee)}</b></span><span>総売上 <b>${yen(R.gross)}</b></span></div>`;
+    lead.appendChild(el);}
+  if(!list.length)lead.innerHTML='<div class="rep" style="color:var(--ink-soft)">対象月のデータがありません。</div>';
+
+  const custCount={};for(const c in S.custRep){const id=S.custRep[c];if(id&&id!==NONE)custCount[id]=(custCount[id]||0)+1;}
+  const repIds=Object.keys(S.reps);
+  document.getElementById('repTag').textContent=repIds.length+'名';
+  document.getElementById('repTbody').innerHTML=repIds.map(id=>`
+    <tr><td><span class="chip" style="background:${repColor(id)}"></span><input class="txt name-in" data-repname="${esc(id)}" value="${esc(S.reps[id])}" placeholder="氏名を入力"></td>
+    <td class="num" style="color:var(--ink-soft)">${esc(id)}</td><td class="r num">${custCount[id]||0}</td>
+    <td class="r"><button class="del" data-delrep="${esc(id)}">削除</button></td></tr>`).join('')
+    ||'<tr><td colspan="4" style="color:var(--ink-soft)">担当者がいません。「追加」で登録してください。</td></tr>';
+
+  // order numbers per customer (period scoped)
+  const ordsByComp={};for(const o of activeOrders())(ordsByComp[o.comp]=ordsByComp[o.comp]||[]).push(o);
+  const opts=sel=>`<option value="${NONE}" ${sel===NONE?'selected':''}>未割当</option>`+
+    Object.keys(S.reps).map(id=>`<option value="${esc(id)}" ${sel===id?'selected':''}>${esc(S.reps[id]||id)}</option>`).join('');
+  const comps=[...new Set(S.orders.map(o=>o.comp))].sort((a,b)=>(A.comps[b]||0)-(A.comps[a]||0));
+  let refCount=0;
+  document.getElementById('custTbody').innerHTML=comps.map(c=>{
+    const ref=S.custRef[c]||{on:false,rate:S.defRate};if(ref.on)refCount++;
+    const sel=S.custRep[c]||NONE;
+    const ords=ordsByComp[c]||[];
+    const ordHtml=ords.length?ords.map(o=>`<div><span class="m">${esc(o.no)}</span> <span style="opacity:.7">${o.month} ・ ${compactYen(o.product)}</span></div>`).join(''):'<span style="opacity:.6">—</span>';
+    return `<tr><td>${esc(c)}</td>
+      <td><div class="ordno">${ordHtml}</div></td>
+      <td><select class="sel-rep" data-custrep="${esc(c)}">${opts(sel)}</select></td>
+      <td><label class="switch"><input type="checkbox" data-ref="${esc(c)}" ${ref.on?'checked':''}><span class="slider"></span></label></td>
+      <td class="r"><input class="txt rate-in" data-rate="${esc(c)}" type="number" min="0" max="100" step="0.5" value="${ref.rate??S.defRate}" ${ref.on?'':'disabled'}><span style="color:var(--ink-soft)"> %</span></td>
+      <td class="r num">${A.comps[c]?yen(A.comps[c]):'—'}</td></tr>`;}).join('');
+  document.getElementById('custTag').textContent=`紹介あり ${refCount} / ${comps.length}社`;
+  renderGradeSettings();
+  document.getElementById('foot').textContent='';
+}
+
+function renderGradeSettings(){
+  document.getElementById('gradeTag').textContent='F〜A';
+  const gm=S.gradeMax;
+  const rangeText={F:`〜 ${gm.F}万`,E:`${gm.F}万 〜 ${gm.E}万`,D:`${gm.E}万 〜 ${gm.D}万`,
+    C:`${gm.D}万 〜 ${gm.C}万`,B:`${gm.C}万 〜 ${gm.B}万`,A:`${gm.B}万 〜（上限なし）`};
+  const order=['F','E','D','C','B','A'];
+  document.getElementById('gradeTbody').innerHTML=order.map(g=>`
+    <tr><td><span class="grade sm" style="background:${GCOLOR[g]}">${g}</span></td>
+      <td>${rangeText[g]}</td>
+      <td class="r">${g==='A'?'<span style="color:var(--ink-soft)">以上</span>':`<input class="txt gband-in" data-gband="${g}" type="number" min="0" step="10" value="${gm[g]}"> 万`}</td></tr>`).join('');
+}
+
+function renderReport(){
+  const period=S.curMonth==='ALL'?'全期間':S.curMonth;
+  document.getElementById('rptPeriod').textContent=period+(S.curMonth==='ALL'?' ・ 評価は月別のみ表示':'');
+  document.getElementById('bar1Period').textContent=period;
+  const A=aggregate(activeOrders());
+  const list=Object.values(A.reps).sort((a,b)=>b.net-a.net);
+  let body='';for(const R of list){const none=R.id===NONE;
+    body+=`<tr><td><span class="chip" style="background:${none?'#9A958A':repColor(R.id)}"></span>${esc(repName(R.id))}</td>
+      <td class="r num">${yen(R.gross)}</td><td class="r num" style="color:var(--fee)">▲${numFmt(R.fee)}</td>
+      <td class="r num" style="color:var(--net);font-weight:700">${yen(R.net)}</td>
+      <td class="r num">${R.orders}</td><td class="r num">${R.custs.size}</td>
+      <td class="r">${(none||S.curMonth==='ALL')?'<span style="color:#c4bfb2" title="評価は対象月を選ぶと表示されます">—</span>':`<span class="grade sm" style="background:${GCOLOR[gradeOf(R.net)]};display:inline-grid">${gradeOf(R.net)}</span>`}</td></tr>`;}
+  body+=`<tr class="total"><td>合計</td><td class="r num">${yen(A.tGross)}</td><td class="r num" style="color:var(--fee)">▲${numFmt(A.tFee)}</td>
+    <td class="r num" style="color:var(--net)">${yen(A.tNet)}</td><td class="r num">${activeOrders().length}</td><td class="r num">${new Set(activeOrders().map(o=>o.comp)).size}</td><td></td></tr>`;
+  document.getElementById('pivotBody').innerHTML=body||'<tr><td colspan="7" style="color:var(--ink-soft)">データがありません。</td></tr>';
+  document.getElementById('chartBar').innerHTML=barChartH(list.filter(r=>r.net>0).map(r=>({label:repName(r.id),value:r.net,color:r.id===NONE?'#9A958A':repColor(r.id)})));
+  renderTrend();
+  renderMatrix();
+  document.getElementById('foot').textContent=`累計: ${S.orders.length}受注 / ${S.orders.reduce((a,o)=>a+(o.lines||0),0)}明細`;
+}
+
+function renderMatrix(){
+  // legend
+  const gm=S.gradeMax;
+  const lt={F:`〜${gm.F}万`,E:`〜${gm.E}万`,D:`〜${gm.D}万`,C:`〜${gm.C}万`,B:`〜${gm.B}万`,A:`${gm.B}万〜`};
+  document.getElementById('gscale').innerHTML=GRADES.map(g=>`<span class="gi"><span class="grade sm" style="background:${GCOLOR[g]}">${g}</span>${lt[g]}</span>`).join('');
+
+  const months=[...S.months];
+  const repIds=Object.keys(S.reps);
+  // net[repId][month]
+  const net={},cnt={};
+  for(const id of repIds){net[id]={};cnt[id]={};}
+  for(const o of S.orders){const id=repOf(o);if(id===NONE||!net[id])continue;
+    const fee=o.product*rateOf(o.comp);net[id][o.month]=(net[id][o.month]||0)+(o.product-fee);cnt[id][o.month]=(cnt[id][o.month]||0)+1;}
+
+  if(!months.length||!repIds.length){
+    document.getElementById('matrixHead').innerHTML='';
+    document.getElementById('matrixBody').innerHTML='<tr><td style="color:var(--ink-soft);padding:14px">担当者を割り当てた受注がありません。</td></tr>';return;}
+
+  document.getElementById('matrixHead').innerHTML='<tr><th>営業担当者</th>'+months.map(m=>`<th class="r" style="text-align:center">${m}</th>`).join('')+'</tr>';
+  document.getElementById('matrixBody').innerHTML=repIds.map(id=>{
+    const cells=months.map(m=>{
+      const c=cnt[id][m]||0;
+      if(!c)return '<td class="na">—</td>';
+      const v=net[id][m]||0,g=gradeOf(v);
+      return `<td class="cell"><span class="grade" style="background:${GCOLOR[g]};margin:0 auto">${g}</span><div class="cnet num">${compactYen(v)}</div></td>`;
+    }).join('');
+    return `<tr><td><span class="chip" style="background:${repColor(id)}"></span>${esc(S.reps[id]||id)}</td>${cells}</tr>`;
+  }).join('');
+}
+
+/* ---- charts ---- */
+function barChartH(data){
+  if(!data.length)return '<p style="color:var(--ink-soft);font-size:13px;padding:8px 0">表示できるデータがありません。</p>';
+  data.sort((a,b)=>b.value-a.value);
+  const W=720,rowH=42,padL=160,padR=90,top=10,H=top+data.length*rowH+10;
+  const max=Math.max(...data.map(d=>d.value))||1;const bw=W-padL-padR;
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:760px" font-family="Spline Sans Mono, monospace">`;
+  data.forEach((d,i)=>{const y=top+i*rowH+8,w=d.value/max*bw;
+    s+=`<text x="${padL-12}" y="${y+15}" text-anchor="end" font-size="13" font-family="Zen Kaku Gothic New,sans-serif" fill="#1A1A17">${esc(trim(d.label,11))}</text>`;
+    s+=`<rect x="${padL}" y="${y}" width="${bw}" height="22" rx="5" fill="#EFEBE0"/>`;
+    s+=`<rect x="${padL}" y="${y}" width="${Math.max(2,w)}" height="22" rx="5" fill="${d.color}"/>`;
+    s+=`<text x="${padL+Math.max(2,w)+8}" y="${y+16}" font-size="12.5" fill="#1A1A17">${compactYen(d.value)}</text>`;});
+  s+='</svg>';return s;}
+
+function renderTrend(){
+  const months=[...S.months];
+  const repIds=Object.keys(S.reps);
+  const hasNone=S.orders.some(o=>repOf(o)===NONE);
+  const series=repIds.concat(hasNone?[NONE]:[]);
+  const val={};for(const m of months)val[m]={};
+  for(const o of S.orders){const id=repOf(o);const fee=o.product*rateOf(o.comp);val[o.month][id]=(val[o.month][id]||0)+(o.product-fee);}
+  let max=1;for(const m of months)for(const id of series)max=Math.max(max,val[m][id]||0);
+  const groups=Math.max(months.length,1);const perGroup=Math.max(series.length,1);
+  const gW=Math.max(90,perGroup*26+30);const W=Math.max(640,60+groups*gW+20);
+  const padL=60,padB=46,top=12,H=300;const plotH=H-top-padB;
+  const niceMax=niceCeil(max);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" font-family="Spline Sans Mono, monospace">`;
+  for(let t=0;t<=4;t++){const v=niceMax*t/4,y=top+plotH-(v/niceMax*plotH);
+    s+=`<line x1="${padL}" y1="${y}" x2="${W-20}" y2="${y}" stroke="#EAE6DB"/>`;
+    s+=`<text x="${padL-8}" y="${y+4}" text-anchor="end" font-size="11" fill="#6B675C">${compactYen(v)}</text>`;}
+  const groupW=(W-padL-20)/groups,bw=18,gap=6;
+  months.forEach((m,gi)=>{const gx=padL+gi*groupW;const innerW=perGroup*(bw+gap)-gap;const startX=gx+(groupW-innerW)/2;
+    series.forEach((id,si)=>{const v=val[m][id]||0;const h=v/niceMax*plotH;const bx=startX+si*(bw+gap);const by=top+plotH-h;
+      s+=`<rect x="${bx}" y="${by}" width="${bw}" height="${Math.max(0,h)}" rx="3" fill="${id===NONE?'#9A958A':repColor(id)}"><title>${esc(repName(id))} ${m}: ${yen(v)}</title></rect>`;});
+    s+=`<text x="${gx+groupW/2}" y="${H-padB+20}" text-anchor="middle" font-size="12" font-family="Zen Kaku Gothic New,sans-serif" fill="#1A1A17">${m}</text>`;});
+  s+=`<line x1="${padL}" y1="${top+plotH}" x2="${W-20}" y2="${top+plotH}" stroke="#D6D1C4"/></svg>`;
+  document.getElementById('chartTrend').innerHTML=months.length?s:'<p style="color:var(--ink-soft);font-size:13px;padding:8px 0">データがありません。</p>';
+  document.getElementById('trendLegend').innerHTML=series.map(id=>`<span><i class="dot" style="background:${id===NONE?'#9A958A':repColor(id)}"></i>${esc(repName(id))}</span>`).join('');
+}
+function niceCeil(v){if(v<=0)return 1;const p=Math.pow(10,Math.floor(Math.log10(v)));const n=v/p;let m;if(n<=1)m=1;else if(n<=2)m=2;else if(n<=2.5)m=2.5;else if(n<=5)m=5;else m=10;return m*p;}
+function trim(s,n){s=String(s);return s.length>n?s.slice(0,n-1)+'…':s;}
+
+/* ---- events ---- */
+function readFile(f){const rd=new FileReader();rd.onload=()=>ingest(decodeBuffer(rd.result),f.name);rd.readAsArrayBuffer(f);}
+document.getElementById('file').addEventListener('change',e=>{if(e.target.files[0])readFile(e.target.files[0]);e.target.value='';});
+document.getElementById('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b)setView(b.dataset.v);});
+document.getElementById('monthSel').addEventListener('change',render);
+document.getElementById('defRate').addEventListener('change',render);
+document.getElementById('addRep').addEventListener('click',()=>{const id=newRepId();S.reps[id]='';render();
+  setTimeout(()=>{const el=document.querySelector(`[data-repname="${id}"]`);if(el)el.focus();},0);});
+document.getElementById('btnClear').addEventListener('click',()=>{
+  if(!confirm('取り込んだ受注データをすべて消去します。\n（担当者・割当などの設定は残ります）よろしいですか？'))return;
+  S.orders=[];persistOrders();S.curMonth='ALL';
+  document.getElementById('empty').classList.remove('hidden');
+  document.getElementById('subbar').classList.add('hidden');
+  document.getElementById('viewSetup').classList.add('hidden');
+  document.getElementById('viewReport').classList.add('hidden');
+  document.getElementById('btnClear').disabled=true;document.getElementById('btnExport').disabled=true;
+  notify('受注データを消去しました。設定（担当者・割当・紹介設定）は保持しています。','ok');
+  if(cloudConfigured())cloudSave();});
+document.addEventListener('input',e=>{
+  if(e.target.dataset.repname!==undefined){S.reps[e.target.dataset.repname]=e.target.value;
+    document.querySelectorAll(`[data-custrep] option[value="${e.target.dataset.repname}"]`).forEach(o=>o.textContent=e.target.value||e.target.dataset.repname);}
+  if(e.target.dataset.rate!==undefined){const c=e.target.dataset.rate;S.custRef[c]=S.custRef[c]||{on:true};S.custRef[c].rate=parseFloat(e.target.value)||0;render();}
+  if(e.target.dataset.gband!==undefined){S.gradeMax[e.target.dataset.gband]=parseFloat(e.target.value)||0;}
+});
+document.addEventListener('change',e=>{
+  if(e.target.dataset.ref!==undefined){const c=e.target.dataset.ref;S.custRef[c]=S.custRef[c]||{rate:S.defRate};S.custRef[c].on=e.target.checked;render();}
+  if(e.target.dataset.custrep!==undefined){S.custRep[e.target.dataset.custrep]=e.target.value;render();}
+  if(e.target.dataset.repname!==undefined){render();}
+  if(e.target.dataset.gband!==undefined){render();}
+});
+document.addEventListener('click',e=>{
+  if(e.target.dataset.close!==undefined){document.getElementById('notice').classList.add('hidden');}
+  if(e.target.dataset.delrep!==undefined){const id=e.target.dataset.delrep;
+    if(!confirm(`「${S.reps[id]||id}」を削除しますか？\nこの担当に割り当てられた顧客は「未割当」に戻ります。`))return;
+    delete S.reps[id];for(const c in S.custRep)if(S.custRep[c]===id)S.custRep[c]=NONE;render();}
+});
+document.getElementById('btnExport').addEventListener('click',()=>{
+  const data={reps:S.reps,custRep:S.custRep,custRef:S.custRef,defRate:S.defRate};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='sales_assessment_settings.json';a.click();});
+document.getElementById('impFile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);
+    if(d.reps)S.reps=d.reps;if(d.custRep)Object.assign(S.custRep,d.custRep);if(d.custRef)Object.assign(S.custRef,d.custRef);
+    if(d.defRate!=null){S.defRate=d.defRate;document.getElementById('defRate').value=d.defRate;}
+    render();notify('設定を読み込みました。','ok');}catch(err){notify('設定ファイルを読み取れませんでした。','warn');}e.target.value='';};rd.readAsText(f);});
+const drop=document.getElementById('empty');
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('drag');}));
+drop.addEventListener('drop',e=>{if(e.dataTransfer.files[0])readFile(e.dataTransfer.files[0]);});
+
+/* ---- cloud & backup events ---- */
+document.getElementById('btnCloud').addEventListener('click',()=>{
+  document.getElementById('cloudPanel').classList.toggle('hidden');});
+document.getElementById('cloudClose').addEventListener('click',()=>document.getElementById('cloudPanel').classList.add('hidden'));
+document.getElementById('cfgUrl').addEventListener('input',e=>{S.cloud.url=e.target.value.trim();saveCloudCfg();});
+document.getElementById('cfgKey').addEventListener('input',e=>{S.cloud.key=e.target.value.trim();saveCloudCfg();});
+document.getElementById('cfgAuto').addEventListener('change',e=>{S.cloud.auto=e.target.checked;saveCloudCfg();});
+document.getElementById('btnCloudLoad').addEventListener('click',async()=>{
+  if(!cloudConfigured()){notify('Supabase URL と anon key を入力してください。','warn');return;}
+  const ok=await cloudLoad();
+  if(ok){refreshMasters();buildMonths();showApp();render();notify(`クラウドから読み込みました（受注 ${S.orders.length}件）。`,'ok');}
+  else notify('クラウドに保存データがありませんでした。CSVを取り込むと自動で保存されます。','warn');});
+document.getElementById('btnCloudSave').addEventListener('click',async()=>{
+  if(!cloudConfigured()){notify('Supabase URL と anon key を入力してください。','warn');return;}
+  await cloudSave();notify('クラウドへ保存しました。','ok');});
+document.getElementById('btnBackup').addEventListener('click',fullBackup);
+document.getElementById('restoreFile').addEventListener('change',e=>{if(e.target.files[0])fullRestore(e.target.files[0]);e.target.value='';});
+
+/* ---- boot: cloud first, then local cache ---- */
+(async function boot(){
+  bootstrapSettings();loadCloudCfg();
+  let loaded=false;
+  if(cloudConfigured()){loaded=await cloudLoad();}else{setCloudStatus('未設定');}
+  if(!loaded){const saved=Store.get('orders');if(saved&&saved.length)S.orders=saved;}
+  if(S.orders.length){refreshMasters();buildMonths();showApp();render();}
+})();
+</script>
+</body>
+</html>
