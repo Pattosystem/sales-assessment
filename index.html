@@ -315,11 +315,16 @@ create policy "anon_all" on app_state
       <div class="block-head"><span class="n">★</span><h3>ボーナス試算 ・ 対象判定</h3><span class="hint" id="bonusMonthNote"></span></div>
       <div class="bonus-note">
         <b>給料は保存されません。</b> この欄に入力した月給はこのPCの画面内だけで使われ、localStorageにもクラウドにも一切記録しません。ページを再読込すると消えます。
-        <br>判定ルール：<b>その月の粗利（純売上 × 10%）が「月給 × 3」以上なら「対象」</b>。会社全体の利益は計算に含めません。
+        <br>判定ルール：<b>その月の粗利（純売上 × 10%）が「月給 × 倍率」以上なら「対象」</b>。会社全体の利益は計算に含めません。
       </div>
-      <div id="bonusTableWrap" class="chartcard" style="padding:0;overflow:auto;margin-top:14px">
+      <div class="bar" style="margin-top:14px">
+        <label class="field">対象の倍率：月給 ×
+          <input class="txt rate-in" id="bonusMult" type="number" min="0" step="0.5" value="2"> 倍以上で対象
+        </label>
+      </div>
+      <div id="bonusTableWrap" class="chartcard" style="padding:0;overflow:auto;margin-top:8px">
         <table><thead><tr>
-          <th>営業担当者</th><th class="r">粗利（月）</th><th class="r">月給（入力）</th><th class="r">月給 × 3</th><th class="r">判定</th><th class="r">超過額</th>
+          <th>営業担当者</th><th class="r">粗利（月）</th><th class="r">月給（入力）</th><th class="r" id="thMult">月給 × 2</th><th class="r">判定</th><th class="r">超過額</th>
         </tr></thead><tbody id="bonusBody"></tbody></table>
       </div>
       <button class="btn sm" id="btnClearSal" style="margin-top:12px">入力した給料をクリア</button>
@@ -333,6 +338,7 @@ const NONE='__none__';
 const Store={get(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
 const S={orders:[],months:[],reps:{},custRep:{},custRef:{},defRate:10,curMonth:'ALL',view:'setup',
   gradeMax:{F:100,E:200,D:300,C:400,B:600},
+  bonusMult:2,
   cloud:{url:'',key:'',auto:true}};
 const GRADES=['F','E','D','C','B','A'];
 const GCOLOR={F:'#A23B3B',E:'#B5603B',D:'#C07A2B',C:'#B5912B',B:'#4F8A3F',A:'#1F7A4D'};
@@ -399,17 +405,19 @@ function bootstrapSettings(){
   const cf=Store.get('cust_ref');if(cf)S.custRef=cf;
   const dr=Store.get('def_rate');if(dr!=null){S.defRate=dr;document.getElementById('defRate').value=dr;}
   const gm=Store.get('grade_max');if(gm)S.gradeMax=gm;
+  const bm=Store.get('bonus_mult');if(bm!=null)S.bonusMult=bm;
 }
 function persistOrders(){Store.set('orders',S.orders);}
-function persistSettings(){Store.set('reps',S.reps);Store.set('cust_rep',S.custRep);Store.set('cust_ref',S.custRef);Store.set('def_rate',S.defRate);Store.set('grade_max',S.gradeMax);}
+function persistSettings(){Store.set('reps',S.reps);Store.set('cust_rep',S.custRep);Store.set('cust_ref',S.custRef);Store.set('def_rate',S.defRate);Store.set('grade_max',S.gradeMax);Store.set('bonus_mult',S.bonusMult);}
 
 /* ---- snapshot / hydrate (used by cloud + backup) ---- */
-function snapshot(){return {orders:S.orders,reps:S.reps,custRep:S.custRep,custRef:S.custRef,defRate:S.defRate,gradeMax:S.gradeMax};}
+function snapshot(){return {orders:S.orders,reps:S.reps,custRep:S.custRep,custRef:S.custRef,defRate:S.defRate,gradeMax:S.gradeMax,bonusMult:S.bonusMult};}
 function hydrate(d){
   if(Array.isArray(d.orders))S.orders=d.orders;
   if(d.reps)S.reps=d.reps;if(d.custRep)S.custRep=d.custRep;if(d.custRef)S.custRef=d.custRef;
   if(d.defRate!=null){S.defRate=d.defRate;document.getElementById('defRate').value=d.defRate;}
   if(d.gradeMax)S.gradeMax=d.gradeMax;
+  if(d.bonusMult!=null)S.bonusMult=d.bonusMult;
   persistOrders();persistSettings();
 }
 
@@ -636,12 +644,15 @@ function renderMatrix(){
 /* ---- bonus (給料は保存しない・メモリのみ) ---- */
 let salaries={};   // repId -> 月給（揮発。snapshot/persist/cloudには絶対入れない）
 function grossProfitOf(net){return net*(S.defRate/100);} // 粗利 = 純売上 × 10%
-function judgeHtml(arari,sal){
+function judgeHtml(arari,sal,m){
   if(!sal)return '<span style="color:var(--ink-soft)">月給を入力</span>';
-  return arari>=sal*3?'<span class="jbadge ok">対象</span>':'<span class="jbadge no">対象外</span>';}
+  return arari>=sal*m?'<span class="jbadge ok">対象</span>':'<span class="jbadge no">対象外</span>';}
 function exHtml(diff){const a=yen(Math.abs(diff));return diff>=0?`<span style="color:var(--net)">+${a}</span>`:`<span style="color:var(--warn)">−${a}</span>`;}
 function renderBonus(){
   const note=document.getElementById('bonusMonthNote'),wrapEl=document.getElementById('bonusTableWrap'),body=document.getElementById('bonusBody');
+  const m=S.bonusMult;
+  document.getElementById('bonusMult').value=m;
+  document.getElementById('thMult').textContent='月給 × '+m;
   if(S.curMonth==='ALL'){
     note.textContent='上の「対象月」で特定の月を選んでください（判定は月ごとに行います）。';
     wrapEl.style.display='none';body.innerHTML='';return;}
@@ -654,17 +665,17 @@ function renderBonus(){
       <td><span class="chip" style="background:${repColor(R.id)}"></span>${esc(repName(R.id))}</td>
       <td class="r num">${yen(arari)}</td>
       <td class="r"><span style="color:var(--ink-soft)">¥</span><input class="txt sal-in" data-sal="${esc(R.id)}" type="number" min="0" step="10000" value="${sal||''}" placeholder="月給"></td>
-      <td class="r num" data-th="${esc(R.id)}">${sal?yen(sal*3):'—'}</td>
-      <td class="r" data-judge="${esc(R.id)}">${judgeHtml(arari,sal)}</td>
-      <td class="r num" data-ex="${esc(R.id)}">${sal?exHtml(arari-sal*3):'—'}</td>
+      <td class="r num" data-th="${esc(R.id)}">${sal?yen(sal*m):'—'}</td>
+      <td class="r" data-judge="${esc(R.id)}">${judgeHtml(arari,sal,m)}</td>
+      <td class="r num" data-ex="${esc(R.id)}">${sal?exHtml(arari-sal*m):'—'}</td>
     </tr>`;}).join('')||'<tr><td colspan="6" style="color:var(--ink-soft)">この月のデータがありません。</td></tr>';
 }
 function updateBonusRow(id){
-  const sal=salaries[id]||0;const A=aggregate(activeOrders());const R=A.reps[id];
+  const m=S.bonusMult;const sal=salaries[id]||0;const A=aggregate(activeOrders());const R=A.reps[id];
   const arari=R?grossProfitOf(R.net):0;
-  const th=document.querySelector(`[data-th="${id}"]`);if(th)th.innerHTML=sal?yen(sal*3):'—';
-  const j=document.querySelector(`[data-judge="${id}"]`);if(j)j.innerHTML=judgeHtml(arari,sal);
-  const ex=document.querySelector(`[data-ex="${id}"]`);if(ex)ex.innerHTML=sal?exHtml(arari-sal*3):'—';
+  const th=document.querySelector(`[data-th="${id}"]`);if(th)th.innerHTML=sal?yen(sal*m):'—';
+  const j=document.querySelector(`[data-judge="${id}"]`);if(j)j.innerHTML=judgeHtml(arari,sal,m);
+  const ex=document.querySelector(`[data-ex="${id}"]`);if(ex)ex.innerHTML=sal?exHtml(arari-sal*m):'—';
 }
 
 /* ---- charts ---- */
@@ -741,6 +752,7 @@ document.addEventListener('change',e=>{
   if(e.target.dataset.gband!==undefined){render();}
 });
 document.getElementById('btnClearSal').addEventListener('click',()=>{salaries={};renderBonus();});
+document.getElementById('bonusMult').addEventListener('input',e=>{const v=parseFloat(e.target.value);if(!isNaN(v))S.bonusMult=v;persistSettings();scheduleCloud();renderBonus();});
 document.addEventListener('click',e=>{
   if(e.target.dataset.close!==undefined){document.getElementById('notice').classList.add('hidden');}
   if(e.target.dataset.delrep!==undefined){const id=e.target.dataset.delrep;
