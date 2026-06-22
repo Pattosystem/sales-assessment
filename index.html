@@ -126,6 +126,12 @@
   .gscale .gi{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft)}
   .gband-in{width:72px;text-align:right;font-family:"Spline Sans Mono",monospace}
   .cloud-pill{font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:20px;background:var(--hair);color:var(--ink-soft);white-space:nowrap}
+  .bonus-note{background:var(--fee-soft);border:1px solid #ecd9b8;border-radius:12px;padding:14px 16px;font-size:13px;color:#7a5418;line-height:1.7}
+  .bonus-note b{color:#5e3f10}
+  .jbadge{display:inline-grid;place-items:center;padding:4px 14px;border-radius:20px;font-weight:800;font-size:12.5px}
+  .jbadge.ok{background:var(--net-soft);color:#1f5b40}
+  .jbadge.no{background:var(--hair);color:var(--ink-soft)}
+  .sal-in{width:130px;text-align:right;font-family:"Spline Sans Mono",monospace}
   .cloud-pill.on{background:var(--net-soft);color:#1f5b40}
   .cloud-pill.err{background:#f7dede;color:#922}
   .cloud-panel{position:relative;margin-top:24px;background:var(--surface);border:1px solid var(--hair-strong);border-radius:16px;box-shadow:var(--shadow);padding:22px 24px}
@@ -154,6 +160,7 @@
     <nav class="tabs" id="tabs">
       <button data-v="setup" class="active">取込・設定</button>
       <button data-v="report">集計レポート</button>
+      <button data-v="bonus">ボーナス試算</button>
     </nav>
     <div class="spacer"></div>
     <label class="btn primary" for="file">⬆ CSVを追加取込</label>
@@ -300,6 +307,23 @@ create policy "anon_all" on app_state
       </div>
     </section>
     <p class="foot" id="foot"></p>
+  </div>
+
+  <!-- ===== BONUS ===== -->
+  <div id="viewBonus" class="hidden">
+    <section class="block">
+      <div class="block-head"><span class="n">★</span><h3>ボーナス試算 ・ 対象判定</h3><span class="hint" id="bonusMonthNote"></span></div>
+      <div class="bonus-note">
+        <b>給料は保存されません。</b> この欄に入力した月給はこのPCの画面内だけで使われ、localStorageにもクラウドにも一切記録しません。ページを再読込すると消えます。
+        <br>判定ルール：<b>その月の粗利（純売上 × 10%）が「月給 × 3」以上なら「対象」</b>。会社全体の利益は計算に含めません。
+      </div>
+      <div id="bonusTableWrap" class="chartcard" style="padding:0;overflow:auto;margin-top:14px">
+        <table><thead><tr>
+          <th>営業担当者</th><th class="r">粗利（月）</th><th class="r">月給（入力）</th><th class="r">月給 × 3</th><th class="r">判定</th><th class="r">超過額</th>
+        </tr></thead><tbody id="bonusBody"></tbody></table>
+      </div>
+      <button class="btn sm" id="btnClearSal" style="margin-top:12px">入力した給料をクリア</button>
+    </section>
   </div>
 </div>
 
@@ -480,12 +504,13 @@ function aggregate(orders){const reps={},comps={};let g=0,f=0,n=0,sh=0;
 function setView(v){S.view=v;
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
   document.getElementById('viewSetup').classList.toggle('hidden',v!=='setup');
-  document.getElementById('viewReport').classList.toggle('hidden',v!=='report');render();}
+  document.getElementById('viewReport').classList.toggle('hidden',v!=='report');
+  document.getElementById('viewBonus').classList.toggle('hidden',v!=='bonus');render();}
 
 function render(){
   S.curMonth=document.getElementById('monthSel').value||'ALL';
   S.defRate=parseFloat(document.getElementById('defRate').value)||0;
-  if(S.view==='setup')renderSetup();else renderReport();
+  if(S.view==='setup')renderSetup();else if(S.view==='report')renderReport();else renderBonus();
   persistSettings();scheduleCloud();
 }
 
@@ -608,6 +633,40 @@ function renderMatrix(){
   }).join('');
 }
 
+/* ---- bonus (給料は保存しない・メモリのみ) ---- */
+let salaries={};   // repId -> 月給（揮発。snapshot/persist/cloudには絶対入れない）
+function grossProfitOf(net){return net*(S.defRate/100);} // 粗利 = 純売上 × 10%
+function judgeHtml(arari,sal){
+  if(!sal)return '<span style="color:var(--ink-soft)">月給を入力</span>';
+  return arari>=sal*3?'<span class="jbadge ok">対象</span>':'<span class="jbadge no">対象外</span>';}
+function exHtml(diff){const a=yen(Math.abs(diff));return diff>=0?`<span style="color:var(--net)">+${a}</span>`:`<span style="color:var(--warn)">−${a}</span>`;}
+function renderBonus(){
+  const note=document.getElementById('bonusMonthNote'),wrapEl=document.getElementById('bonusTableWrap'),body=document.getElementById('bonusBody');
+  if(S.curMonth==='ALL'){
+    note.textContent='上の「対象月」で特定の月を選んでください（判定は月ごとに行います）。';
+    wrapEl.style.display='none';body.innerHTML='';return;}
+  note.textContent=S.curMonth+' の粗利で判定';wrapEl.style.display='';
+  const A=aggregate(activeOrders());
+  const list=Object.values(A.reps).filter(r=>r.id!==NONE).sort((a,b)=>b.net-a.net);
+  body.innerHTML=list.map(R=>{
+    const arari=grossProfitOf(R.net);const sal=salaries[R.id]||0;
+    return `<tr>
+      <td><span class="chip" style="background:${repColor(R.id)}"></span>${esc(repName(R.id))}</td>
+      <td class="r num">${yen(arari)}</td>
+      <td class="r"><span style="color:var(--ink-soft)">¥</span><input class="txt sal-in" data-sal="${esc(R.id)}" type="number" min="0" step="10000" value="${sal||''}" placeholder="月給"></td>
+      <td class="r num" data-th="${esc(R.id)}">${sal?yen(sal*3):'—'}</td>
+      <td class="r" data-judge="${esc(R.id)}">${judgeHtml(arari,sal)}</td>
+      <td class="r num" data-ex="${esc(R.id)}">${sal?exHtml(arari-sal*3):'—'}</td>
+    </tr>`;}).join('')||'<tr><td colspan="6" style="color:var(--ink-soft)">この月のデータがありません。</td></tr>';
+}
+function updateBonusRow(id){
+  const sal=salaries[id]||0;const A=aggregate(activeOrders());const R=A.reps[id];
+  const arari=R?grossProfitOf(R.net):0;
+  const th=document.querySelector(`[data-th="${id}"]`);if(th)th.innerHTML=sal?yen(sal*3):'—';
+  const j=document.querySelector(`[data-judge="${id}"]`);if(j)j.innerHTML=judgeHtml(arari,sal);
+  const ex=document.querySelector(`[data-ex="${id}"]`);if(ex)ex.innerHTML=sal?exHtml(arari-sal*3):'—';
+}
+
 /* ---- charts ---- */
 function barChartH(data){
   if(!data.length)return '<p style="color:var(--ink-soft);font-size:13px;padding:8px 0">表示できるデータがありません。</p>';
@@ -673,6 +732,7 @@ document.addEventListener('input',e=>{
     document.querySelectorAll(`[data-custrep] option[value="${e.target.dataset.repname}"]`).forEach(o=>o.textContent=e.target.value||e.target.dataset.repname);}
   if(e.target.dataset.rate!==undefined){const c=e.target.dataset.rate;S.custRef[c]=S.custRef[c]||{on:true};S.custRef[c].rate=parseFloat(e.target.value)||0;render();}
   if(e.target.dataset.gband!==undefined){S.gradeMax[e.target.dataset.gband]=parseFloat(e.target.value)||0;}
+  if(e.target.dataset.sal!==undefined){const id=e.target.dataset.sal;salaries[id]=parseFloat(e.target.value)||0;updateBonusRow(id);}
 });
 document.addEventListener('change',e=>{
   if(e.target.dataset.ref!==undefined){const c=e.target.dataset.ref;S.custRef[c]=S.custRef[c]||{rate:S.defRate};S.custRef[c].on=e.target.checked;render();}
@@ -680,6 +740,7 @@ document.addEventListener('change',e=>{
   if(e.target.dataset.repname!==undefined){render();}
   if(e.target.dataset.gband!==undefined){render();}
 });
+document.getElementById('btnClearSal').addEventListener('click',()=>{salaries={};renderBonus();});
 document.addEventListener('click',e=>{
   if(e.target.dataset.close!==undefined){document.getElementById('notice').classList.add('hidden');}
   if(e.target.dataset.delrep!==undefined){const id=e.target.dataset.delrep;
